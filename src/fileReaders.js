@@ -2,12 +2,27 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
+import { createWorker } from "tesseract.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-const OCR_ENDPOINT = "/api/ocr";
+// Reusable Tesseract worker (initialized lazily on first use)
+let ocrWorker = null;
 
-// Read PDF text using PDF.js with rotation-aware layout
+async function getOcrWorker(onProgress) {
+  if (ocrWorker) return ocrWorker;
+  if (onProgress) onProgress("Khởi tạo OCR engine (chỉ lần đầu)...");
+  ocrWorker = await createWorker(["eng", "vie"], 1, {
+    logger: (m) => {
+      if (m.status === "recognizing text" && onProgress) {
+        onProgress(`OCR: ${Math.round(m.progress * 100)}%`);
+      }
+    },
+  });
+  return ocrWorker;
+}
+
+// Read text from PDF using PDF.js with rotation-aware layout
 async function readPDFText(pdf) {
   let text = "";
 
@@ -64,52 +79,43 @@ async function readPDFText(pdf) {
   return text;
 }
 
-// Render PDF page to base64 PNG (for OCR)
-async function renderPageToBase64(page, scale = 2) {
+// Render a PDF page to canvas at high resolution for OCR
+async function renderPageToCanvas(page, scale = 2) {
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext("2d");
-
   await page.render({ canvasContext: ctx, viewport }).promise;
-
-  // Convert to base64 JPEG (smaller than PNG)
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-  return dataUrl.split(",")[1]; // strip "data:image/jpeg;base64,"
+  return canvas;
 }
 
-// OCR a scanned PDF via Vision API
+// OCR a scanned PDF page-by-page with Tesseract.js
 async function ocrPDF(pdf, onProgress) {
-  const images = [];
+  const worker = await getOcrWorker(onProgress);
+  let allText = "";
+
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    if (onProgress) onProgress(`OCR page ${pageNum}/${pdf.numPages}`);
+    if (onProgress) onProgress(`OCR page ${pageNum}/${pdf.numPages}...`);
     const page = await pdf.getPage(pageNum);
-    const base64 = await renderPageToBase64(page);
-    images.push(base64);
+    const canvas = await renderPageToCanvas(page, 2);
+    const { data } = await worker.recognize(canvas);
+    allText += data.text + "\n\n";
   }
 
-  const resp = await fetch(OCR_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ images }),
-  });
-  const data = await resp.json();
-  if (data.error) throw new Error("OCR: " + data.error);
-  return data.text || "";
+  return allText;
 }
 
 async function readPDF(file, onProgress) {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
 
-  // First try to extract text directly
+  // First try to extract text directly (fast path)
   const text = await readPDFText(pdf);
 
-  // If extracted text is too short, it's likely a scanned PDF
-  // JDA POM343 PDFs have at least 500+ chars of text
+  // If too little text, it's a scanned PDF — use OCR
   if (text.replace(/\s/g, "").length < 100) {
-    if (onProgress) onProgress("Scanned PDF detected, sử dụng OCR...");
+    if (onProgress) onProgress("Scanned PDF, đang OCR...");
     return await ocrPDF(pdf, onProgress);
   }
 
@@ -184,5 +190,13 @@ export async function extractText(file, onProgress) {
       return readExcel(file);
     default:
       throw new Error(`Định dạng không hỗ trợ: .${ext}`);
+  }
+}
+
+// Cleanup function (optional - call on app unmount)
+export async function cleanupOCR() {
+  if (ocrWorker) {
+    await ocrWorker.terminate();
+    ocrWorker = null;
   }
 }

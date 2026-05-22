@@ -102,7 +102,7 @@ export default function App() {
           <h1 style={styles.title}>PO SGC Extractor</h1>
           <p style={styles.subtitle}>Upload file PO → Extract dữ liệu → Xuất Excel</p>
         </div>
-        <div style={styles.badge}>📄 Parse local · 🔍 OCR cho scanned PDF</div>
+        <div style={styles.badge}>🔒 100% offline · OCR built-in</div>
       </div>
 
       <div
