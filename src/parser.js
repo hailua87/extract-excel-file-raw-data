@@ -50,6 +50,7 @@ function parseNum(s) {
 
 function extractShipTo(text) {
   const lines = text.split("\n");
+  // Strategy 1: "Ship To:" header (Standard JDA format)
   for (let i = 0; i < lines.length; i++) {
     if (/Ship\s+To\s*:/i.test(lines[i])) {
       for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
@@ -64,10 +65,16 @@ function extractShipTo(text) {
       }
     }
   }
+  // Strategy 2: "Store-" line (Confirmation Report format)
+  for (const line of lines) {
+    const m = line.match(/Store-?\s+\d+\s+(.+?)(?:\s{3,}|$)/i);
+    if (m) return m[1].trim();
+  }
+  // Strategy 3: Fallback patterns
   const patterns = [
     /(Trung\s+[Tt]am\s+[Pp]han\s+phoi\s+\S+(?:\s+\S+){0,2})/i,
     /(TTPP?\s+[A-Z\s/()]+?)(?:\s{2,}|$)/i,
-    /(Co\.?op[Mm]art\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i,
+    /(Co\.?op[Mm]art\s+[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)/,
     /(KHO\s+[A-Z\s]+?)(?:\s{2,}|$)/i,
     /(Trung\s+chuyen\s+\S+(?:\s*-\s*\d+)?)/i,
     /(Trung\s+tam\s+phan\s+phoi\s+\S+)/i,

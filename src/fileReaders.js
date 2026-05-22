@@ -10,8 +10,8 @@ let ocrWorker = null;
 
 async function getOcrWorker(onProgress) {
   if (ocrWorker) return ocrWorker;
-  if (onProgress) onProgress("Tải OCR engine (~30s, chỉ lần đầu)...");
-  ocrWorker = await createWorker(["eng"], 1, { logger: () => {} });
+  if (onProgress) onProgress("Tải OCR engine eng+vie (~50s, chỉ lần đầu)...");
+  ocrWorker = await createWorker(["eng", "vie"], 1, { logger: () => {} });
   return ocrWorker;
 }
 
