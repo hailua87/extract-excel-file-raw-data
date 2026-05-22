@@ -21,10 +21,19 @@ async function readPDFText(pdf) {
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
+    
+    // Detect if majority of items are rotated 90° (a=d=0, b/c set)
+    let rotatedCount = 0;
+    for (const item of content.items) {
+      const [a, b, c, d] = item.transform;
+      if (Math.abs(a) < 0.01 && Math.abs(d) < 0.01) rotatedCount++;
+    }
+    const isRotated = rotatedCount > content.items.length / 2;
+    
     const items = content.items.map((item) => {
       const [a, b, c, d, e, f] = item.transform;
       let lineKey, colKey;
-      if (Math.abs(a) < 0.01 && Math.abs(d) < 0.01) {
+      if (isRotated) {
         lineKey = Math.round(e); colKey = f;
       } else {
         lineKey = Math.round(f); colKey = e;
@@ -36,7 +45,9 @@ async function readPDFText(pdf) {
       if (!lines[it.lineKey]) lines[it.lineKey] = [];
       lines[it.lineKey].push(it);
     }
-    const sortedKeys = Object.keys(lines).map(Number).sort((a, b) => a - b);
+    // For non-rotated PDFs, higher Y = top of page → sort descending
+    // For rotated PDFs, lower X = top of page (after rotation) → sort ascending
+    const sortedKeys = Object.keys(lines).map(Number).sort((a, b) => isRotated ? a - b : b - a);
     for (const k of sortedKeys) {
       const lineItems = lines[k].sort((a, b) => a.colKey - b.colKey);
       let lineText = "", lastEnd = 0;

@@ -99,10 +99,10 @@ function runPattern(text, pattern) {
 export function parsePOText(text, fileName) {
   text = text.replace(/\x00/g, "");
 
-  const poMatch = text.match(/P[\/\\][O0]\.?\s+Number[:-]?\s+(\d+)/i);
+  const poMatch = text.match(/P\s*[\/\\]\s*[O0]\.?\s+Number[:-]?\s+(\d+)/i);
   const poNumber = poMatch ? poMatch[1] : "";
 
-  const locMatch = text.match(/P[\/\\][O0]\.?\s+Location[:-]?\s+(\d+)/i);
+  const locMatch = text.match(/P\s*[\/\\]\s*[O0]\.?\s+Location[:-]?\s+(\d+)/i);
   const poLocation = locMatch ? locMatch[1] : "";
 
   const shipTo = extractShipTo(text);
