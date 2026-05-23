@@ -13,6 +13,9 @@ const HEADERS = [
   { key: "poNumber", label: "P/O Number" },
   { key: "poLocation", label: "P/O Location" },
   { key: "shipTo", label: "Ship To" },
+  { key: "promo", label: "Khuyến mãi" },
+  { key: "notes", label: "Notes" },
+  { key: "total", label: "Total" },
 ];
 
 export default function App() {
@@ -73,7 +76,7 @@ export default function App() {
     const dataRows = rows.map((r) =>
       HEADERS.map((h) => {
         const v = r[h.key];
-        if (["buyCost", "netBuyCost", "qtyCS", "qtyPCS"].includes(h.key)) {
+        if (["buyCost", "netBuyCost", "qtyCS", "qtyPCS", "total"].includes(h.key)) {
           const n = Number(v);
           return isNaN(n) ? v || "" : n;
         }
@@ -83,7 +86,8 @@ export default function App() {
     const ws = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
     ws["!cols"] = [
       { wch: 14 }, { wch: 43 }, { wch: 13 }, { wch: 13 },
-      { wch: 9 }, { wch: 9 }, { wch: 13 }, { wch: 17 }, { wch: 28 },
+      { wch: 9 }, { wch: 9 }, { wch: 13 }, { wch: 11 }, { wch: 28 },
+      { wch: 28 }, { wch: 50 }, { wch: 18 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const d = new Date();
