@@ -139,17 +139,58 @@ function runPattern(text, pattern) {
   return records;
 }
 
-// Extract promo info that follows each SKU line
-// Pattern: "MUA 7 TANG 1 (HKM NHAP GIA)" or "MUA / TANG 1 (HKM NHAP GIA)" etc.
-function extractPromoForMatch(text, matchEndIdx) {
-  // Look at next ~200 chars after the match for a promo line
-  const lookahead = text.substring(matchEndIdx, matchEndIdx + 300);
-  // Promo pattern: MUA <something> TANG <num> (HKM NHAP GIA) or similar
-  const promoMatch = lookahead.match(/(MUA\s+\S+\s+TANG\s+\d+\s*\(HKM[^)]*\))/i);
-  if (promoMatch) {
-    return promoMatch[1].replace(/\s+/g, " ").trim();
+// Build SKU → promo map by walking the text top-to-bottom.
+// Two promo styles:
+//   1. "MUA X TANG 1 (HKM NHAP GIA)" — applies to the SKU directly ABOVE
+//   2. "X+Y GIAM GIA" — applies to ALL SKUs from previous GIAM GIA line (or start) to this line
+function buildPromoMap(text) {
+  const lines = text.split("\n");
+  const map = {};
+  const skuRegex = /(\d{7}-\d)/;
+  const giamGiaRegex = /^\s*(\d+\s*\+\s*\d+)\s+GIAM\s+GIA\s*$/i;
+  const hkmRegex = /^\s*(MUA\s+\S+\s+TANG\s+\d+\s*\(HKM[^)]*\))\s*$/i;
+
+  // First pass: collect SKUs in order with their line index
+  const skuLines = []; // [{sku, lineIdx}]
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(skuRegex);
+    if (m && /EA\s+(C\d+|EA)/.test(lines[i])) {
+      skuLines.push({ sku: m[1], lineIdx: i });
+    }
   }
-  return "";
+
+  // Second pass: scan for promo lines and assign
+  let lastGiamGiaLineIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const giamMatch = lines[i].match(giamGiaRegex);
+    if (giamMatch) {
+      const promoStr = giamMatch[1].replace(/\s+/g, "") + " GIAM GIA";
+      // Apply to all SKUs between (lastGiamGiaLineIdx, i)
+      for (const { sku, lineIdx } of skuLines) {
+        if (lineIdx > lastGiamGiaLineIdx && lineIdx < i) {
+          // Only set if not already set by HKM (HKM is more specific)
+          if (!map[sku]) map[sku] = promoStr;
+        }
+      }
+      lastGiamGiaLineIdx = i;
+      continue;
+    }
+    const hkmMatch = lines[i].match(hkmRegex);
+    if (hkmMatch) {
+      // HKM applies to nearest SKU above
+      let nearest = null;
+      for (const s of skuLines) {
+        if (s.lineIdx < i && (!nearest || s.lineIdx > nearest.lineIdx)) {
+          nearest = s;
+        }
+      }
+      if (nearest) {
+        map[nearest.sku] = hkmMatch[1].replace(/\s+/g, " ").trim();
+      }
+    }
+  }
+
+  return map;
 }
 
 export function parsePOText(text, fileName) {
@@ -175,23 +216,22 @@ export function parsePOText(text, fileName) {
     matches = stdMatches.length > 0 ? stdMatches : confirmMatches;
   }
 
-  return matches.map((m) => {
-    const matchEnd = m.index + m[0].length;
-    const promo = extractPromoForMatch(text, matchEnd);
-    return {
-      sku: m[1],
-      description: m[2].trim().replace(/\s+/g, " "),
-      buyCost: parseNum(m[3]),
-      netBuyCost: parseNum(m[4]),
-      qtyCS: parseNum(m[5]),
-      qtyPCS: parseNum(m[6]),
-      poNumber,
-      poLocation,
-      shipTo,
-      promo,         // NEW: HKM NHAP GIA info
-      notes,         // NEW: Notes (shared across PO)
-      total,         // NEW: PO Total (shared)
-      _source: fileName,
-    };
-  });
+  // Build promo map once for entire text
+  const promoMap = buildPromoMap(text);
+
+  return matches.map((m) => ({
+    sku: m[1],
+    description: m[2].trim().replace(/\s+/g, " "),
+    buyCost: parseNum(m[3]),
+    netBuyCost: parseNum(m[4]),
+    qtyCS: parseNum(m[5]),
+    qtyPCS: parseNum(m[6]),
+    poNumber,
+    poLocation,
+    shipTo,
+    promo: promoMap[m[1]] || "",
+    notes,
+    total,
+    _source: fileName,
+  }));
 }
