@@ -6,16 +6,16 @@ import { parsePOText } from "./parser.js";
 const HEADERS = [
   { key: "sku", label: "SKU Number" },
   { key: "description", label: "Description" },
+  { key: "promo", label: "Khuyến mãi" },
   { key: "buyCost", label: "Buy Cost" },
   { key: "netBuyCost", label: "Net Buy Cost" },
   { key: "qtyCS", label: "QtyOrd/CS" },
   { key: "qtyPCS", label: "QtyOrd/PCS" },
+  { key: "total", label: "Total" },
   { key: "poNumber", label: "P/O Number" },
   { key: "poLocation", label: "P/O Location" },
   { key: "shipTo", label: "Ship To" },
-  { key: "promo", label: "Khuyến mãi" },
   { key: "notes", label: "Notes" },
-  { key: "total", label: "Total" },
 ];
 
 export default function App() {
@@ -85,9 +85,9 @@ export default function App() {
     );
     const ws = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
     ws["!cols"] = [
-      { wch: 14 }, { wch: 43 }, { wch: 13 }, { wch: 13 },
-      { wch: 9 }, { wch: 9 }, { wch: 13 }, { wch: 11 }, { wch: 28 },
-      { wch: 28 }, { wch: 50 }, { wch: 18 },
+      { wch: 14 }, { wch: 43 }, { wch: 28 }, { wch: 13 }, { wch: 13 },
+      { wch: 9 }, { wch: 9 }, { wch: 18 }, { wch: 13 }, { wch: 11 },
+      { wch: 28 }, { wch: 50 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const d = new Date();
