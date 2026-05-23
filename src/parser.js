@@ -140,9 +140,9 @@ function runPattern(text, pattern) {
 }
 
 // Build SKU → promo map by walking the text top-to-bottom.
-// Two promo styles:
-//   1. "MUA X TANG 1 (HKM NHAP GIA)" — applies to the SKU directly ABOVE
-//   2. "X+Y GIAM GIA" — applies to ALL SKUs from previous GIAM GIA line (or start) to this line
+// Both promo styles apply to the SKU IMMEDIATELY ABOVE only:
+//   1. "MUA X TANG 1 (HKM NHAP GIA)"
+//   2. "X+Y GIAM GIA"
 function buildPromoMap(text) {
   const lines = text.split("\n");
   const map = {};
@@ -150,8 +150,8 @@ function buildPromoMap(text) {
   const giamGiaRegex = /^\s*(\d+\s*\+\s*\d+)\s+GIAM\s+GIA\s*$/i;
   const hkmRegex = /^\s*(MUA\s+\S+\s+TANG\s+\d+\s*\(HKM[^)]*\))\s*$/i;
 
-  // First pass: collect SKUs in order with their line index
-  const skuLines = []; // [{sku, lineIdx}]
+  // Collect SKUs in order with line index
+  const skuLines = [];
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(skuRegex);
     if (m && /EA\s+(C\d+|EA)/.test(lines[i])) {
@@ -159,34 +159,25 @@ function buildPromoMap(text) {
     }
   }
 
-  // Second pass: scan for promo lines and assign
-  let lastGiamGiaLineIdx = -1;
+  // For each promo line, find the nearest SKU above and assign promo to it only
   for (let i = 0; i < lines.length; i++) {
     const giamMatch = lines[i].match(giamGiaRegex);
-    if (giamMatch) {
-      const promoStr = giamMatch[1].replace(/\s+/g, "") + " GIAM GIA";
-      // Apply to all SKUs between (lastGiamGiaLineIdx, i)
-      for (const { sku, lineIdx } of skuLines) {
-        if (lineIdx > lastGiamGiaLineIdx && lineIdx < i) {
-          // Only set if not already set by HKM (HKM is more specific)
-          if (!map[sku]) map[sku] = promoStr;
-        }
-      }
-      lastGiamGiaLineIdx = i;
-      continue;
-    }
     const hkmMatch = lines[i].match(hkmRegex);
-    if (hkmMatch) {
-      // HKM applies to nearest SKU above
-      let nearest = null;
-      for (const s of skuLines) {
-        if (s.lineIdx < i && (!nearest || s.lineIdx > nearest.lineIdx)) {
-          nearest = s;
-        }
+    if (!giamMatch && !hkmMatch) continue;
+
+    const promoStr = giamMatch
+      ? giamMatch[1].replace(/\s+/g, "") + " GIAM GIA"
+      : hkmMatch[1].replace(/\s+/g, " ").trim();
+
+    // Find nearest SKU above
+    let nearest = null;
+    for (const s of skuLines) {
+      if (s.lineIdx < i && (!nearest || s.lineIdx > nearest.lineIdx)) {
+        nearest = s;
       }
-      if (nearest) {
-        map[nearest.sku] = hkmMatch[1].replace(/\s+/g, " ").trim();
-      }
+    }
+    if (nearest) {
+      map[nearest.sku] = promoStr;
     }
   }
 
