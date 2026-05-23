@@ -86,7 +86,7 @@ export default function App() {
     const ws = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
     ws["!cols"] = [
       { wch: 14 }, { wch: 43 }, { wch: 28 }, { wch: 13 }, { wch: 13 },
-      { wch: 9 }, { wch: 9 }, { wch: 18 }, { wch: 13 }, { wch: 11 },
+      { wch: 9 }, { wch: 9 }, { wch: 22 }, { wch: 13 }, { wch: 11 },
       { wch: 28 }, { wch: 50 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
@@ -234,7 +234,7 @@ const styles = {
   btnSecondary: { padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" },
   btnPrimary: { padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1e40af,#7c3aed)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 10px rgba(30,64,175,0.25)" },
   tableWrap: { marginTop: 14, overflowX: "auto", borderRadius: 8, border: "1px solid #e2e8f0", maxHeight: "60vh", overflow: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 1050 },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 1400 },
   th: { padding: "9px 7px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "#475569", background: "#f1f5f9", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 1 },
   td: { padding: "3px 5px", borderBottom: "1px solid #f1f5f9", verticalAlign: "middle" },
   cellInput: { width: "100%", border: "1px solid transparent", borderRadius: 3, padding: "4px 5px", fontSize: 12, background: "transparent", outline: "none", boxSizing: "border-box" },
