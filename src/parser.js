@@ -140,17 +140,23 @@ function runPattern(text, pattern) {
 }
 
 // Build SKU → promo map by walking the text top-to-bottom.
-// Both promo styles apply to the SKU IMMEDIATELY ABOVE only:
-//   1. "MUA X TANG 1 (HKM NHAP GIA)"
-//   2. "X+Y GIAM GIA"  (e.g. "2+1 GIAM GIA")
-//   3. "Mua 0X+0Y GIAM GIA"  (e.g. "Mua 05+01 GIAM GIA")
+// Promo lines apply to the SKU IMMEDIATELY ABOVE only.
+// Recognized patterns (all variations of khuyến mãi keywords):
+//   - "MUA X TANG Y (HKM NHAP GIA)"        e.g. "MUA 7 TANG 1 (HKM NHAP GIA)"
+//   - "MUA X+Y (NHAP GIA)"                 e.g. "MUA 5+1 (NHAP GIA)"
+//   - "Mua X+Y GIAM GIA"                   e.g. "Mua 05+01 GIAM GIA"
+//   - "MUA X+Y GIAM GIA"                   e.g. "MUA 05T + 01T GIAM GIA"
+//   - "Mua X chai tang Y hop tt"           e.g. "Mua 01 chai tang 1 hop tt"
+//   - "X+Y GIAM GIA"  (no Mua prefix)      e.g. "2+1 GIAM GIA"
 function buildPromoMap(text) {
   const lines = text.split("\n");
   const map = {};
   const skuRegex = /(\d{7}-\d)/;
-  // Match "2+1 GIAM GIA" OR "Mua 05+01 GIAM GIA"
-  const giamGiaRegex = /^\s*(?:Mua\s+)?(\d+\s*\+\s*\d+)\s+GIAM\s+GIA\s*$/i;
-  const hkmRegex = /^\s*(MUA\s+\S+\s+TANG\s+\d+\s*\(HKM[^)]*\))\s*$/i;
+
+  // Broad promo pattern: any line that starts with "MUA" (any case),
+  // OR starts with "N+N GIAM GIA" pattern.
+  // Excludes regular text lines like "Mot Hoa Don" because they don't start with MUA+number/space.
+  const promoRegex = /^\s*(MUA\s+.+|\d+\s*\+\s*\d+\s+GIAM\s+GIA.*)$/i;
 
   // Collect SKUs in order with line index
   const skuLines = [];
@@ -162,19 +168,15 @@ function buildPromoMap(text) {
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const giamMatch = lines[i].match(giamGiaRegex);
-    const hkmMatch = lines[i].match(hkmRegex);
-    if (!giamMatch && !hkmMatch) continue;
+    const trimmed = lines[i].trim();
+    // Skip if this is an SKU line (false positive from broad regex)
+    if (skuRegex.test(lines[i]) && /EA\s+(C\d+|EA)/.test(lines[i])) continue;
 
-    let promoStr;
-    if (giamMatch) {
-      // Preserve "Mua " prefix if present in original line
-      const hasMua = /^\s*Mua\s+/i.test(lines[i]);
-      const ratio = giamMatch[1].replace(/\s+/g, "");
-      promoStr = hasMua ? `Mua ${ratio} GIAM GIA` : `${ratio} GIAM GIA`;
-    } else {
-      promoStr = hkmMatch[1].replace(/\s+/g, " ").trim();
-    }
+    const m = lines[i].match(promoRegex);
+    if (!m) continue;
+
+    // Normalize: collapse multiple spaces, trim
+    const promoStr = m[1].replace(/\s+/g, " ").trim();
 
     // Find nearest SKU above
     let nearest = null;
