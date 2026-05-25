@@ -142,12 +142,14 @@ function runPattern(text, pattern) {
 // Build SKU → promo map by walking the text top-to-bottom.
 // Both promo styles apply to the SKU IMMEDIATELY ABOVE only:
 //   1. "MUA X TANG 1 (HKM NHAP GIA)"
-//   2. "X+Y GIAM GIA"
+//   2. "X+Y GIAM GIA"  (e.g. "2+1 GIAM GIA")
+//   3. "Mua 0X+0Y GIAM GIA"  (e.g. "Mua 05+01 GIAM GIA")
 function buildPromoMap(text) {
   const lines = text.split("\n");
   const map = {};
   const skuRegex = /(\d{7}-\d)/;
-  const giamGiaRegex = /^\s*(\d+\s*\+\s*\d+)\s+GIAM\s+GIA\s*$/i;
+  // Match "2+1 GIAM GIA" OR "Mua 05+01 GIAM GIA"
+  const giamGiaRegex = /^\s*(?:Mua\s+)?(\d+\s*\+\s*\d+)\s+GIAM\s+GIA\s*$/i;
   const hkmRegex = /^\s*(MUA\s+\S+\s+TANG\s+\d+\s*\(HKM[^)]*\))\s*$/i;
 
   // Collect SKUs in order with line index
@@ -159,15 +161,20 @@ function buildPromoMap(text) {
     }
   }
 
-  // For each promo line, find the nearest SKU above and assign promo to it only
   for (let i = 0; i < lines.length; i++) {
     const giamMatch = lines[i].match(giamGiaRegex);
     const hkmMatch = lines[i].match(hkmRegex);
     if (!giamMatch && !hkmMatch) continue;
 
-    const promoStr = giamMatch
-      ? giamMatch[1].replace(/\s+/g, "") + " GIAM GIA"
-      : hkmMatch[1].replace(/\s+/g, " ").trim();
+    let promoStr;
+    if (giamMatch) {
+      // Preserve "Mua " prefix if present in original line
+      const hasMua = /^\s*Mua\s+/i.test(lines[i]);
+      const ratio = giamMatch[1].replace(/\s+/g, "");
+      promoStr = hasMua ? `Mua ${ratio} GIAM GIA` : `${ratio} GIAM GIA`;
+    } else {
+      promoStr = hkmMatch[1].replace(/\s+/g, " ").trim();
+    }
 
     // Find nearest SKU above
     let nearest = null;
